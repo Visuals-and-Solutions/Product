@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ScriptForge — katalog skryptów</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <h1>⚒️ ScriptForge</h1>
+    <nav>
+      <a href="{{ url_for('index') }}">Skrypty</a>
+      <a href="{{ url_for('generate') }}">+ Nowy skrypt</a>
+      <a href="{{ url_for('keys_page') }}">Klucze</a>
+    </nav>
+  </header>
+
+  <section class="providers">
+    {% for p in provider_rows %}
+      <span class="pill {{ 'ok' if p.configured else 'missing' }}" title="{{ p.env_keys|join(', ') }}">
+        {{ p.label }} · {{ p.default_model }} · {{ 'gotowy' if p.configured else 'brak klucza' }}
+      </span>
+    {% endfor %}
+  </section>
+
+  <section class="toolbar">
+    <form method="get" action="/">
+      <input type="search" name="q" placeholder="Szukaj: nazwa, tag, prompt…" value="{{ search }}">
+      <button>Szukaj</button>
+    </form>
+    {% if tag %}<span class="pill ok">tag: {{ tag }} <a href="/">✕</a></span>{% endif %}
+  </section>
+
+  <main>
+    {% if scripts %}
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Nazwa</th><th>Język</th><th>Tagi</th><th>Provider</th><th>Utworzono</th><th></th></tr>
+      </thead>
+      <tbody>
+      {% for s in scripts %}
+        <tr>
+          <td>{{ s.id }}</td>
+          <td><a href="{{ url_for('detail', ref=s.slug) }}">{{ s.name }}</a></td>
+          <td>{{ s.language }}</td>
+          <td>
+            {% for t in s.tags %}<a class="pill" href="{{ url_for('index', tag=t) }}">{{ t }}</a>{% endfor %}
+          </td>
+          <td>{{ s.provider }}</td>
+          <td>{{ s.created_at[:16].replace('T', ' ') }}</td>
+          <td>
+            <form method="post" action="{{ url_for('delete', ref=s.slug) }}" onsubmit="return confirm('Usunąć skrypt?')">
+              <button class="danger">Usuń</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">Brak skryptów. Wygeneruj pierwszy: <a href="{{ url_for('generate') }}">+ Nowy skrypt</a></p>
+    {% endif %}
+  </main>
+</body>
+</html>

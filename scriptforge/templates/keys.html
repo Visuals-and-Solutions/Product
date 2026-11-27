@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Klucze API — ScriptForge</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <h1>⚒️ ScriptForge</h1>
+    <nav>
+      <a href="{{ url_for('index') }}">← Skrypty</a>
+      <a href="{{ url_for('generate') }}">+ Nowy skrypt</a>
+      <a href="{{ url_for('keys_page') }}">Klucze</a>
+    </nav>
+  </header>
+
+  <main>
+    <h2>Klucze API</h2>
+    {% if message %}<p class="{{ 'ok-msg' if ok else 'error' }}">{{ message }}</p>{% endif %}
+
+    <p class="meta">
+      Klucze zapisują się w stałej konfiguracji (<code>~/.config/scriptforge/.env</code>) — przetrwają restarty i aktualizacje.
+      Wartości nie są nigdy wyświetlane — tylko stan i maska.
+      {% if tests %}
+      <br><strong>Wynik testu:</strong>
+      <ul>
+        {% for name, result in tests.items() %}
+        <li><code>{{ name }}</code>: {{ result }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </p>
+
+    <table>
+      <thead><tr><th>Zmienna</th><th>Provider</th><th>Stan</th><th>Wartość</th><th>Format</th></tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>
+          <td><code>{{ row.name }}</code></td>
+          <td>{{ provider_of.get(row.name, ('—','—'))[1] }}</td>
+          <td>{{ '✔ OK' if row.set else '— brak' }}</td>
+          <td><code>{{ row.masked or '—' }}</code></td>
+          <td>{{ row.kind }}{% if row.warning %} ⚠{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+
+    <h3>Dodaj / zaktualizuj klucz</h3>
+    <form method="post" action="{{ url_for('keys_page') }}" class="gen-form">
+      <div class="row">
+        <label>Klucz
+          <select name="key_name">
+            {% for row in rows %}
+            <option value="{{ row.name }}">{{ row.name }} ({{ provider_of.get(row.name, ('','—'))[1] }})</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Wartość (wklej klucz)
+          <input type="password" name="key_value" required placeholder="wklej klucz API" autocomplete="off">
+        </label>
+      </div>
+      <button type="submit">Zapisz klucz</button>
+    </form>
+
+    <p>
+      <a class="pill ok" href="{{ url_for('keys_page', test=1) }}">▶ Testuj klucze teraz (pobiera modele)</a>
+      · Klucze dostaniesz tutaj:
+      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> ·
+      <a href="https://build.nvidia.com" target="_blank" rel="noopener">NVIDIA</a> ·
+      <a href="https://z.ai/manage-apikey/apikey-list" target="_blank" rel="noopener">Z.ai</a>
+      <p class="meta">⚠ Google: AI Studio od 28.05.2026 wydaje klucze <b>Auth</b> <code>AQ.Ab…</code> (ok. 53 znaki).
+      Stare klucze <code>AIza…</code> (Standard) wygasły po wrześniu 2026.
+      Na liście kluczy AI Studio widać tylko skrócony podgląd — otwórz szczegóły klucza i użyj <b>Copy key</b>.</p>
+    </p>
+  </main>
+</body>
+</html>
