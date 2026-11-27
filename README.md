@@ -38,9 +38,18 @@ Skopiuj `.env.example` do `.env` (lub wyeksportuj zmienne w shellu) i uzupełnij
 | NVIDIA NIM | `NVIDIA_API_KEY` | `meta/llama-3.3-70b-instruct` |
 | Z.ai (GLM) | `ZAI_API_KEY` lub `ZHIPU_API_KEY` | `glm-4.6` |
 
-Zmienne opcjonalne: `SCRIPTFORGE_HOME` (katalog roboczy, domyślnie `~/scriptforge`), `SCRIPTFORGE_PROVIDER`, `SCRIPTFORGE_MODEL`.
+Zmienne opcjonalne: `SCRIPTFORGE_HOME` (katalog roboczy, domyślnie `~/scriptforge`), `SCRIPTFORGE_PROVIDER`, `SCRIPTFORGE_MODEL`, `SCRIPTFORGE_CONFIG` (ścieżka stałej konfiguracji).
 
-Stan kluczy sprawdzisz poleceniem `scriptforge providers`. Provider `mock` nie wymaga klucza — służy do testów i pracy offline.
+### Stała konfiguracja kluczy (przetrwa reinstalacje)
+
+Klucze zapisane w `~/.config/scriptforge/.env` są wczytywane zawsze — nawet gdy uruchamiasz system z nowo rozpakowanej paczki, w której nie ma lokalnego `.env`. Instalator nigdy nie nadpisze istniejących kluczy.
+
+```bash
+scriptforge config                        # stan kluczy (maskowany) + ścieżki konfiguracji
+scriptforge config --import ~/stara-paczka/.env   # import kluczy ze starego .env (bez wyświetlania wartości)
+```
+
+Stan kluczy sprawdzisz także poleceniem `scriptforge providers`. Provider `mock` nie wymaga klucza — służy do testów i pracy offline.
 
 ## CLI
 

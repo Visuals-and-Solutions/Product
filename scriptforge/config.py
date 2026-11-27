@@ -1,10 +1,22 @@
-"""Konfiguracja providerów i obsługa pliku .env."""
+"""Konfiguracja providerów i obsługa plików .env."""
 
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
+
+KNOWN_KEY_NAMES = ["GOOGLE_API_KEY", "GEMINI_API_KEY", "NVIDIA_API_KEY", "ZAI_API_KEY", "ZHIPU_API_KEY"]
+
+
+def user_config_path() -> Path:
+    """Stała lokalizacja kluczy w katalogu domowym — przetrwa reinstalacje i nowe paczki."""
+    override = os.environ.get("SCRIPTFORGE_CONFIG")
+    if override:
+        return Path(override).expanduser()
+    base = os.environ.get("XDG_CONFIG_HOME", "~/.config")
+    return (Path(base).expanduser() / "scriptforge" / ".env")
 
 
 PROVIDERS = {
@@ -32,8 +44,19 @@ PROVIDERS = {
 
 
 def load_dotenv(path: Path | None = None) -> None:
-    """Wczytuje proste pary KEY=VALUE z pliku .env (bez nadpisywania istniejących)."""
-    candidates = [path] if path else [Path.cwd() / ".env", Path(__file__).resolve().parent.parent / ".env"]
+    """Wczytuje pary KEY=VALUE bez nadpisywania zmiennych już obecnych w środowisku.
+
+    Bez argumentu: najpierw lokalny .env (bieżący katalog, potem katalog projektu),
+    na końcu stała konfiguracja użytkownika (~/.config/scriptforge/.env).
+    """
+    if path is not None:
+        candidates = [path]
+    else:
+        candidates = [
+            Path.cwd() / ".env",
+            Path(__file__).resolve().parent.parent / ".env",
+            user_config_path(),
+        ]
     for candidate in candidates:
         if not candidate or not candidate.is_file():
             continue
@@ -46,6 +69,55 @@ def load_dotenv(path: Path | None = None) -> None:
             value = value.strip().strip('"').strip("'")
             if key and key not in os.environ:
                 os.environ[key] = value
+
+
+_LINE_RE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$")
+
+
+def import_env_file(source: Path) -> tuple[list[str], int]:
+    """Kopiuje znane klucze API z podanego pliku do stałej konfiguracji użytkownika.
+
+    Nie nadpisuje kluczy już zapisanych w konfiguracji. Zwraca (zaimportowane nazwy, pominięte).
+    """
+    source = Path(source).expanduser()
+    if not source.is_file():
+        raise FileNotFoundError(f"Nie znaleziono pliku: {source}")
+    config_path = user_config_path()
+    existing: dict[str, str] = {}
+    if config_path.is_file():
+        for line in config_path.read_text(encoding="utf-8").splitlines():
+            m = _LINE_RE.match(line)
+            if m and m.group(1) in KNOWN_KEY_NAMES and m.group(2).strip():
+                existing[m.group(1)] = m.group(2).strip()
+    imported, skipped = [], 0
+    for line in source.read_text(encoding="utf-8").splitlines():
+        m = _LINE_RE.match(line)
+        if not m or m.group(1) not in KNOWN_KEY_NAMES:
+            continue
+        key, value = m.group(1), m.group(2).strip().strip('"').strip("'")
+        if not value:
+            continue
+        if key in existing:
+            skipped += 1
+            continue
+        existing[key] = value
+        imported.append(key)
+    if imported:
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        lines = [f"{k}={existing[k]}" for k in KNOWN_KEY_NAMES if k in existing]
+        config_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return imported, skipped
+
+
+def key_status() -> list[dict]:
+    """Stan kluczy (maskowany — nigdy nie zwraca wartości)."""
+    load_dotenv()
+    rows = []
+    for name in KNOWN_KEY_NAMES:
+        value = os.environ.get(name, "")
+        masked = f"{value[:4]}…***" if len(value) > 8 else ("(ustawiony)" if value else "")
+        rows.append({"name": name, "set": bool(value), "masked": masked})
+    return rows
 
 
 def api_key_for(provider: str) -> str | None:

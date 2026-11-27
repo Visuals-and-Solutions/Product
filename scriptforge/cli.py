@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .config import PROVIDERS, Settings
+from .config import PROVIDERS, Settings, import_env_file, key_status, user_config_path
 from .generator import LANG_ALIASES, ProviderError, generate_and_save
 from .modelinfo import all_models
 from .providers import build_provider, provider_status
@@ -151,6 +151,29 @@ def cmd_models(args) -> None:
     print("\n(* = model domyślny)")
 
 
+def cmd_config(args) -> None:
+    if args.import_path:
+        try:
+            imported, skipped = import_env_file(args.import_path)
+        except FileNotFoundError as exc:
+            print(f"Błąd: {exc}", file=sys.stderr)
+            sys.exit(1)
+        print(f"Stała konfiguracja: {user_config_path()}")
+        if imported:
+            print(f"Zaimportowano klucze: {', '.join(imported)}")
+        else:
+            print("Nie znaleziono nowych kluczy do zaimportowania.")
+        if skipped:
+            print(f"Pominięto (już zapisane): {skipped}")
+        return
+    print(f"Stała konfiguracja (przetrwa reinstalacje): {user_config_path()}")
+    print(f"{'Zmienna':<20} {'Stan':<12} Wartość")
+    for row in key_status():
+        print(f"{row['name']:<20} {'OK' if row['set'] else '—':<12} {row['masked'] or '(brak)'}")
+    print("\nImport kluczy ze starego .env (bez wyświetlania wartości):")
+    print(f"  scriptforge config --import /ścieżka/do/starego/.env")
+
+
 def cmd_export(args) -> None:
     catalog = _catalog(args)
     md = catalog.export_index()
@@ -214,6 +237,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("models", help="dostępne modele dla kluczy API (z cache)")
     p.add_argument("--refresh", action="store_true", help="wymuś odświeżenie z API")
     p.set_defaults(func=cmd_models)
+
+    p = sub.add_parser("config", help="stan kluczy i stała konfiguracja (~/.config/scriptforge/.env)")
+    p.add_argument("--import", dest="import_path", default=None, metavar="PLIK", help="zaimportuj klucze API ze starego pliku .env")
+    p.set_defaults(func=cmd_config)
 
     p = sub.add_parser("export", help="eksportuj INDEX.md i catalog.json")
     p.set_defaults(func=cmd_export)

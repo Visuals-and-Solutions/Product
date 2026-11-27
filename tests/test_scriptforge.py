@@ -125,3 +125,44 @@ def test_get_models_missing_key(tmp_path, monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     info = get_models("google", cache_dir=tmp_path)
     assert info["models"] == [] and info["error"] and "Brak klucza" in info["error"]
+
+
+def test_import_env_file_preserves_existing(tmp_path, monkeypatch):
+    from scriptforge import config
+
+    monkeypatch.setenv("SCRIPTFORGE_CONFIG", str(tmp_path / "cfg" / ".env"))
+    old = tmp_path / "old.env"
+    old.write_text("GOOGLE_API_KEY=old-google-key\nNVIDIA_API_KEY=old-nv-key\nOTHER=1\n")
+    imported, skipped = config.import_env_file(old)
+    assert imported == ["GOOGLE_API_KEY", "NVIDIA_API_KEY"]
+    saved = (tmp_path / "cfg" / ".env").read_text()
+    assert "old-google-key" in saved and "OTHER" not in saved
+
+    newer = tmp_path / "newer.env"
+    newer.write_text("GOOGLE_API_KEY=newer-key\nZAI_API_KEY=zai-key\n")
+    imported2, skipped2 = config.import_env_file(newer)
+    assert imported2 == ["ZAI_API_KEY"] and skipped2 == 1
+    assert "newer-key" not in (tmp_path / "cfg" / ".env").read_text()
+
+
+def test_key_status_masks_values(tmp_path, monkeypatch):
+    from scriptforge import config
+
+    monkeypatch.setenv("SCRIPTFORGE_CONFIG", str(tmp_path / "cfg" / ".env"))
+    monkeypatch.setenv("GOOGLE_API_KEY", "secret-value-123456")
+    rows = {r["name"]: r for r in config.key_status()}
+    assert rows["GOOGLE_API_KEY"]["set"] is True
+    assert "secret-value-123456" not in rows["GOOGLE_API_KEY"]["masked"]
+
+
+def test_load_dotenv_does_not_override_environment(tmp_path, monkeypatch):
+    from scriptforge.config import load_dotenv
+
+    env_file = tmp_path / ".env"
+    env_file.write_text("GOOGLE_API_KEY=from-file\n")
+    monkeypatch.setenv("GOOGLE_API_KEY", "from-env")
+    monkeypatch.chdir(tmp_path)
+    load_dotenv()
+    import os
+
+    assert os.environ["GOOGLE_API_KEY"] == "from-env"

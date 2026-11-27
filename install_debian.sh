@@ -32,14 +32,22 @@ log "Aktualizuję pip i instaluję projekt"
 "$PIP" install --upgrade pip >/dev/null
 "$PIP" install -e . >/dev/null
 
+USER_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/scriptforge/.env"
+
 if [ ! -f .env ]; then
-    log "Tworzę .env z szablonu — wpisz tam swoje klucze API"
-    if [ -f .env.example ]; then
-        cp .env.example .env
+    if [ -f "$USER_CONFIG" ] && grep -qE '^(GOOGLE_API_KEY|NVIDIA_API_KEY|ZAI_API_KEY|GEMINI_API_KEY|ZHIPU_API_KEY)=.+' "$USER_CONFIG"; then
+        log "Klucze API znalezione w $USER_CONFIG — używam ich (nie tworzę lokalnego .env)"
     else
-        printf 'GOOGLE_API_KEY=\nNVIDIA_API_KEY=\nZAI_API_KEY=\n' > .env
+        log "Tworzę .env z szablonu — wpisz tam swoje klucze API"
+        if [ -f .env.example ]; then
+            cp .env.example .env
+        else
+            printf 'GOOGLE_API_KEY=\nNVIDIA_API_KEY=\nZAI_API_KEY=\n' > .env
+        fi
+        log "Edytuj plik .env (GOOGLE_API_KEY / NVIDIA_API_KEY / ZAI_API_KEY)"
+        log "TIP: klucze ze starej instalacji zaimportujesz komendą:"
+        log "     .venv/bin/scriptforge config --import /ścieżka/do/starego/.env"
     fi
-    log "Edytuj plik .env (GOOGLE_API_KEY / NVIDIA_API_KEY / ZAI_API_KEY)"
 fi
 
 export PATH="$VENV/bin:$PATH"
