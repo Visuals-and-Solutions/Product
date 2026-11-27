@@ -35,11 +35,17 @@ Skopiuj `.env.example` do `.env` (lub wyeksportuj zmienne w shellu) i uzupełnij
 
 | Provider | Zmienne | Domyślny model |
 |---|---|---|
-| Google Gemini | `GOOGLE_API_KEY` lub `GEMINI_API_KEY` | `gemini-flash-latest` |
+| Google Gemini | `GOOGLE_API_KEY` lub `GEMINI_API_KEY` | `gemini-4-hydrogen` |
 | NVIDIA NIM | `NVIDIA_API_KEY` | `meta/llama-3.3-70b-instruct` |
 | Z.ai (GLM) | `ZAI_API_KEY` lub `ZHIPU_API_KEY` | `glm-4.6` |
 
 Zmienne opcjonalne: `SCRIPTFORGE_HOME` (katalog roboczy, domyślnie `~/scriptforge`), `SCRIPTFORGE_PROVIDER`, `SCRIPTFORGE_MODEL`, `SCRIPTFORGE_CONFIG` (ścieżka stałej konfiguracji).
+
+### Modele Google (AI Studio, stan: 2026-11)
+
+Domyślnie: **`gemini-4-hydrogen`** (rekomendowany przez Google do nowych projektów). Dostępne konkretnie: `gemini-4-carbon`, `gemini-4-neon`, `gemini-4-hydrogen`, `gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.6-flash`, `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`, `gemini-3.1-pro-preview`.
+
+Uwaga: `gemini-2.5-flash` i `gemini-2.5-pro` są wycofane — od 1.12.2026 Google przekierowuje je na `gemini-3.5-flash-lite` i `gemini-3.8-flash`. Pełna, aktualna lista dla Twojego klucza: `scriptforge models --refresh`.
 
 ### Stała konfiguracja kluczy (przetrwa reinstalacje)
 

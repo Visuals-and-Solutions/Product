@@ -64,6 +64,16 @@
     const modelList = document.getElementById('model-list');
     const modelStatus = document.getElementById('model-status');
     const providerSelect = document.querySelector('select[name="provider"]');
+    const knownModels = {{ known_models | tojson }};
+
+    function seedKnown(provider) {
+      modelList.innerHTML = '';
+      for (const m of knownModels[provider] || []) {
+        const opt = document.createElement('option');
+        opt.value = m;
+        modelList.appendChild(opt);
+      }
+    }
 
     function loadModels(refresh) {
       const provider = providerSelect.value;
@@ -73,7 +83,10 @@
       fetch(url)
         .then(r => r.json())
         .then(info => {
+          seedKnown(provider);
+          const seen = new Set([...modelList.options].map(o => o.value));
           for (const m of info.models || []) {
+            if (seen.has(m)) continue;
             const opt = document.createElement('option');
             opt.value = m;
             modelList.appendChild(opt);
@@ -87,6 +100,7 @@
     }
 
     providerSelect.addEventListener('change', () => loadModels(false));
+    seedKnown(providerSelect.value);
     loadModels(false);
   </script>
 </body>

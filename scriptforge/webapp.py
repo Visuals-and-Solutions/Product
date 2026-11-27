@@ -6,7 +6,7 @@ from pathlib import Path
 
 from flask import Flask, abort, jsonify, redirect, render_template, request, url_for
 
-from .config import PROVIDERS, key_status, set_api_key
+from .config import KNOWN_MODELS, PROVIDERS, key_status, set_api_key
 from .generator import LANG_ALIASES, generate_and_save
 from .modelinfo import get_models
 from .providers import ProviderError, build_provider, provider_status
@@ -75,6 +75,7 @@ def create_app(workspace: Path | None = None) -> Flask:
                 language=language,
                 tags=request.form.get("tags", ""),
                 languages=sorted(set(LANG_ALIASES.values())),
+                known_models=KNOWN_MODELS,
             )
         return render_template(
             "generate.html",
@@ -85,6 +86,7 @@ def create_app(workspace: Path | None = None) -> Flask:
             language="python",
             tags="",
             languages=sorted(set(LANG_ALIASES.values())),
+            known_models=KNOWN_MODELS,
         )
 
     @app.post("/scripts/<ref>/delete")

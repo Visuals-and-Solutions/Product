@@ -23,7 +23,7 @@ PROVIDERS = {
     "google": {
         "label": "Google Gemini",
         "env_keys": ["GOOGLE_API_KEY", "GEMINI_API_KEY"],
-        "default_model": "gemini-flash-latest",
+        "default_model": "gemini-4-hydrogen",
     },
     "nvidia": {
         "label": "NVIDIA NIM",
@@ -33,13 +33,42 @@ PROVIDERS = {
     "zai": {
         "label": "Z.ai (GLM)",
         "env_keys": ["ZAI_API_KEY", "ZHIPU_API_KEY"],
-        "default_model": "glm-4.6",
+        "default_model": "glm-5.3",
     },
     "mock": {
         "label": "Mock (testy, bez klucza)",
         "env_keys": [],
         "default_model": "mock-1",
     },
+}
+
+
+# Konkretne modele (bez aliasów) wg oficjalnych list AI Studio / NIM / Z.ai.
+KNOWN_MODELS = {
+    "google": [
+        "gemini-4-carbon",
+        "gemini-4-neon",
+        "gemini-4-hydrogen",
+        "gemini-4-argon",
+        "gemini-3.8-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-3.1-pro-preview",
+    ],
+    "nvidia": [
+        "meta/llama-3.3-70b-instruct",
+        "qwen/qwen3-coder-480b-a35b-instruct",
+        "deepseek-ai/deepseek-r1",
+        "moonshotai/kimi-k2-instruct",
+    ],
+    "zai": [
+        "glm-5.3",
+        "glm-5.3-flash",
+        "glm-5.2",
+        "glm-4.6",
+    ],
+    "mock": ["mock-1", "mock-2-mini"],
 }
 
 
