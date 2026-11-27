@@ -218,6 +218,36 @@ def cmd_key(args) -> None:
     print("Test: scriptforge doctor")
 
 
+def cmd_diag(args) -> None:
+    catalog = _catalog(args)
+    import platform
+
+    import scriptforge
+
+    print("=== ScriptForge diag (bezpieczne do wklejenia — klucze tylko maskowane) ===")
+    print(f"scriptforge: {scriptforge.__version__}  python: {platform.python_version()}  platform: {platform.platform()[:60]}")
+    print(f"konfiguracja: {user_config_path()}")
+    print(f"workspace: {catalog.workspace}  db: {catalog.db_path} (istnieje: {catalog.db_path.exists()})")
+    print("\n-- klucze --")
+    for row in key_status():
+        print(f"{row['name']:<18} {'OK' if row['set'] else 'BRAK':<5} {row['kind']}")
+    print("\n-- test kluczy (pobiera modele) --")
+    for name, info in all_models(refresh=True, cache_dir=catalog.workspace).items():
+        if info["error"]:
+            print(f"{name:<8} BŁĄD: {info['error'][:200]}")
+        else:
+            print(f"{name:<8} OK: {len(info['models'])} modeli")
+    print("\n-- cache modeli --")
+    for name, info in all_models(cache_dir=catalog.workspace).items():
+        if info["source"] == "cache":
+            print(f"{name:<8} {len(info['models'])} modeli z {info['fetched_at']}")
+    scripts = catalog.list()
+    print(f"\n-- skrypty: {len(scripts)} --")
+    for s in scripts[:5]:
+        print(f"#{s.id} [{s.language}] {s.name[:50]} ({s.provider})")
+    print("\n=== koniec diag ===")
+
+
 def cmd_export(args) -> None:
     catalog = _catalog(args)
     md = catalog.export_index()
@@ -294,6 +324,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("name", nargs="?", default=None, help=f"nazwa zmiennej: {', '.join(KNOWN_KEY_NAMES)}")
     p.add_argument("value", nargs="?", default=None, help="opcjonalnie wartość (lepiej pominąć — wtedy ukryte pytanie)")
     p.set_defaults(func=cmd_key)
+
+    p = sub.add_parser("diag", help="raport diagnostyczny (bezpieczny do wklejenia)")
+    p.set_defaults(func=cmd_diag)
 
     p = sub.add_parser("export", help="eksportuj INDEX.md i catalog.json")
     p.set_defaults(func=cmd_export)
