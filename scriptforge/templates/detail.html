@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ script.name }} — ScriptForge</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <h1>⚒️ ScriptForge</h1>
+    <nav>
+      <a href="{{ url_for('index') }}">← Skrypty</a>
+      <a href="{{ url_for('generate') }}">+ Nowy skrypt</a>
+    </nav>
+  </header>
+
+  <main>
+    <h2>{{ script.name }}</h2>
+    <p class="meta">
+      ID {{ script.id }} · język: {{ script.language }} · provider: {{ script.provider }}/{{ script.model }}<br>
+      tagi: {% for t in script.tags %}<span class="pill">{{ t }}</span>{% else %}—{% endfor %}<br>
+      utworzono: {{ script.created_at }} · wersja: {{ script.version }}
+    </p>
+    <p>{{ script.description }}</p>
+    <p class="meta">Plik: <code>{{ script.path }}</code></p>
+
+    <details>
+      <summary>Prompt źródłowy</summary>
+      <pre>{{ script.prompt }}</pre>
+    </details>
+
+    <pre class="code"><code>{{ code }}</code></pre>
+  </main>
+</body>
+</html>

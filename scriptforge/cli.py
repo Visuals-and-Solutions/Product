@@ -1,0 +1,212 @@
+"""CLI ScriptForge.
+
+Przykłady:
+    scriptforge providers
+    scriptforge gen "backup katalogu do tar.gz z rotacją" -p google --tags backup,bash
+    scriptforge list --tag backup
+    scriptforge show 3
+    scriptforge run 3
+    scriptforge export
+    scriptforge serve --port 7860
+"""
+
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+from pathlib import Path
+
+from . import __version__
+from .config import PROVIDERS, Settings
+from .generator import LANG_ALIASES, ProviderError, generate_and_save
+from .providers import build_provider, provider_status
+from .storage import RUNNABLE, Catalog
+
+
+def _catalog(args) -> Catalog:
+    settings = Settings.from_env()
+    workspace = Path(args.workspace) if getattr(args, "workspace", None) else settings.workspace
+    db = Path(args.db) if getattr(args, "db", None) else workspace / "catalog.sqlite3"
+    return Catalog(workspace, db)
+
+
+def _resolve_script(catalog: Catalog, ref: str):
+    script = catalog.get(ref)
+    if not script:
+        print(f"Nie znaleziono skryptu: {ref}", file=sys.stderr)
+        sys.exit(1)
+    return script
+
+
+def cmd_providers(_args) -> None:
+    print(f"{'Provider':<10} {'Model domyślny':<34} {'Klucz':<6} Zmienne środowiskowe")
+    for row in provider_status():
+        print(f"{row['name']:<10} {row['default_model']:<34} {'OK' if row['configured'] else '—':<6} {','.join(row['env_keys']) or '-'}")
+
+
+def cmd_gen(args) -> None:
+    catalog = _catalog(args)
+    try:
+        provider = build_provider(args.provider, args.model)
+    except ProviderError as exc:
+        print(f"Błąd: {exc}", file=sys.stderr)
+        sys.exit(2)
+    print(f"Provider: {provider.name} / model: {provider.model}")
+    print("Generowanie...")
+    try:
+        path, script = generate_and_save(
+            catalog,
+            provider,
+            args.task,
+            language=args.language,
+            tags=[t.strip() for t in args.tags.split(",") if t.strip()] if args.tags else None,
+        )
+    except ProviderError as exc:
+        print(f"Błąd API: {exc}", file=sys.stderr)
+        sys.exit(3)
+    print(f"Zapisano: {path}")
+    print(f"ID: {script.id}  slug: {script.slug}  język: {script.language}")
+    catalog.export_index()
+
+
+def cmd_list(args) -> None:
+    catalog = _catalog(args)
+    scripts = catalog.list(tag=args.tag, search=args.search)
+    if not scripts:
+        print("Brak skryptów. Użyj: scriptforge gen \"zadanie\"")
+        return
+    print(f"{'ID':<5} {'Język':<12} {'Tagi':<22} {'Nazwa'}")
+    for s in scripts:
+        print(f"{s.id:<5} {s.language:<12} {(','.join(s.tags))[:21]:<22} {s.name[:60]}")
+
+
+def cmd_show(args) -> None:
+    catalog = _catalog(args)
+    script = _resolve_script(catalog, args.ref)
+    print(f"ID: {script.id}")
+    print(f"Nazwa: {script.name}")
+    print(f"Plik: {script.path}")
+    print(f"Język: {script.language}")
+    print(f"Tagi: {', '.join(script.tags) or '—'}")
+    print(f"Provider: {script.provider}/{script.model}")
+    print(f"Utworzono: {script.created_at}  Wersja: {script.version}")
+    print(f"Prompt: {script.prompt}")
+    print("-" * 60)
+    print(catalog.read_code(script))
+
+
+def cmd_run(args) -> None:
+    catalog = _catalog(args)
+    script = _resolve_script(catalog, args.ref)
+    if script.language not in RUNNABLE:
+        print(f"Języka {script.language} nie da się uruchomić bezpośrednio.", file=sys.stderr)
+        sys.exit(1)
+    runner = RUNNABLE[script.language][0]
+    print(f"$ {runner} {script.path}")
+    result = subprocess.run([runner, script.path])
+    sys.exit(result.returncode)
+
+
+def cmd_edit(args) -> None:
+    catalog = _catalog(args)
+    script = catalog.update_meta(
+        args.ref,
+        name=args.name,
+        description=args.description,
+        tags=[t.strip() for t in args.tags.split(",") if t.strip()] if args.tags else None,
+    )
+    if not script:
+        print(f"Nie znaleziono skryptu: {args.ref}", file=sys.stderr)
+        sys.exit(1)
+    catalog.export_index()
+    print(f"Zaktualizowano: {script.id} {script.name}")
+
+
+def cmd_delete(args) -> None:
+    catalog = _catalog(args)
+    if catalog.delete(args.ref):
+        catalog.export_index()
+        print(f"Usunięto: {args.ref}")
+    else:
+        print(f"Nie znaleziono skryptu: {args.ref}", file=sys.stderr)
+        sys.exit(1)
+
+
+def cmd_export(args) -> None:
+    catalog = _catalog(args)
+    md = catalog.export_index()
+    js = catalog.export_json()
+    print(f"INDEX.md: {md}")
+    print(f"catalog.json: {js}")
+
+
+def cmd_serve(args) -> None:
+    from .webapp import create_app
+
+    settings = Settings.from_env()
+    app = create_app()
+    host = "127.0.0.1"
+    print(f"Panel: http://{host}:{args.port}")
+    app.run(host=host, port=args.port, debug=False)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="scriptforge", description="Generator i katalog skryptów (Google / NVIDIA / Z.ai)")
+    parser.add_argument("--workspace", help="katalog roboczy (domyślnie ~/scriptforge)")
+    parser.add_argument("--db", help="ścieżka do bazy SQLite")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p = sub.add_parser("providers", help="lista providerów i stan kluczy")
+    p.set_defaults(func=cmd_providers)
+
+    p = sub.add_parser("gen", help="wygeneruj skrypt z promptu")
+    p.add_argument("task", help="co ma robić skrypt")
+    p.add_argument("-p", "--provider", default=Settings.from_env().provider, choices=list(PROVIDERS))
+    p.add_argument("-m", "--model", default=None, help="model (domyślny z configu providera)")
+    p.add_argument("-l", "--language", default="python", help=f"język skryptu: {', '.join(sorted(set(LANG_ALIASES.values())))}")
+    p.add_argument("--tags", default=None, help="tagi po przecinku, np. backup,devops")
+    p.set_defaults(func=cmd_gen)
+
+    p = sub.add_parser("list", help="lista skryptów")
+    p.add_argument("--tag", default=None)
+    p.add_argument("--search", default=None)
+    p.set_defaults(func=cmd_list)
+
+    p = sub.add_parser("show", help="pokaż szczegóły i kod")
+    p.add_argument("ref", help="ID lub slug")
+    p.set_defaults(func=cmd_show)
+
+    p = sub.add_parser("run", help="uruchom skrypt (python/bash/js)")
+    p.add_argument("ref", help="ID lub slug")
+    p.set_defaults(func=cmd_run)
+
+    p = sub.add_parser("edit", help="edytuj metadane (nazwa, opis, tagi)")
+    p.add_argument("ref", help="ID lub slug")
+    p.add_argument("--name", default=None)
+    p.add_argument("--description", default=None)
+    p.add_argument("--tags", default=None)
+    p.set_defaults(func=cmd_edit)
+
+    p = sub.add_parser("delete", help="usuń skrypt i plik")
+    p.add_argument("ref", help="ID lub slug")
+    p.set_defaults(func=cmd_delete)
+
+    p = sub.add_parser("export", help="eksportuj INDEX.md i catalog.json")
+    p.set_defaults(func=cmd_export)
+
+    p = sub.add_parser("serve", help="panel webowy (tylko 127.0.0.1)")
+    p.add_argument("--port", type=int, default=7860)
+    p.set_defaults(func=cmd_serve)
+
+    return parser
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = build_parser().parse_args(argv)
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()
