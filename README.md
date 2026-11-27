@@ -61,6 +61,12 @@ scriptforge doctor                        # test każdego klucza w praktyce (pob
 
 Stan kluczy sprawdzisz także poleceniem `scriptforge providers`. Provider `mock` nie wymaga klucza — służy do testów i pracy offline.
 
+### Format kluczy Google (AI Studio) — WAŻNE
+
+Od **28.05.2026** Google AI Studio wydaje wyłącznie nowe klucze **Auth** zaczynające się od **`AQ.Ab…`** (ok. 53 znaki). Stare klucze **Standard (`AIza…`) wygasły po wrześniu 2026** — jeśli masz stary klucz, wygeneruj nowy w AI Studio. System przesyła klucz nagłówkiem `x-goog-api-key` (zalecana droga dla formatu Auth) i w `scriptforge config` / panelu pokazuje rozpoznany format oraz ostrzeżenie przy przestarzałym `AIza`.
+
+Pułapka: lista kluczy w AI Studio pokazuje **skrócony, zamaskowany podgląd** — otwórz szczegóły klucza i użyj **„Copy key"**, żeby skopiować pełną wartość; skrócony fragment da błąd `API_KEY_INVALID`.
+
 ### Klucze z poziomu przeglądarki i CLI
 
 W panelu webowym: zakładka **Klucze** (`http://127.0.0.1:7860/keys`) — dodajesz/aktualizujesz klucz, wartość nigdy nie jest wyświetlana (tylko maska), a przycisk **Testuj klucze** od razu weryfikuje każdy klucz pobierając listę modeli. Klucze zapisują się w stałej konfiguracji.

@@ -16,11 +16,11 @@ class ProviderError(RuntimeError):
 
 ERROR_HINTS = {
     "API_KEY_INVALID": (
-        "Klucz API jest nieprawidłowy. Sprawdź:"
-        " 1) czy skopiowałeś pełny klucz ze strony https://aistudio.google.com/apikey (Google),"
-        " build.nvidia.com (NVIDIA) lub z.ai/manage-apikey (Z.ai);"
-        " 2) czy klucz nie zawiera spacji/cudzysłowów;"
-        " 3) czy klucz nie został unieważniony."
+        "Klucz API jest nieprawidłowy. Dla Google (AI Studio):"
+        " nowe klucze mają format Auth zaczynający się od 'AQ.Ab' (stare 'AIza' wygasły po IX 2026);"
+        " na liście kluczy w AI Studio widać tylko skrócony podgląd — otwórz szczegóły klucza i użyj 'Copy key',"
+        " żeby skopiować pełne ~53 znaki."
+        " Sprawdź też spacje/cudzysłowy i to, czy klucz nie został unieważniony."
         " Stan kluczy: scriptforge config"
     ),
     "PERMISSION_DENIED": "Klucz jest ważny, ale nie ma dostępu do tego zasobu/modelu.",
@@ -122,7 +122,7 @@ class GoogleGeminiProvider:
             payload["systemInstruction"] = {"parts": [{"text": system}]}
         response = httpx.post(
             f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent",
-            params={"key": self.api_key},
+            headers={"x-goog-api-key": self.api_key},
             json=payload,
             timeout=self.timeout,
         )
@@ -137,7 +137,8 @@ class GoogleGeminiProvider:
     def list_models(self) -> list[str]:
         response = httpx.get(
             "https://generativelanguage.googleapis.com/v1beta/models",
-            params={"key": self.api_key, "pageSize": 1000},
+            headers={"x-goog-api-key": self.api_key},
+            params={"pageSize": 1000},
             timeout=self.timeout,
         )
         if response.status_code >= 400:

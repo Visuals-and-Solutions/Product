@@ -180,7 +180,7 @@ def test_explain_error_maps_invalid_key():
     from scriptforge.providers import explain_error
 
     msg = explain_error('{"error":{"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT"}}', 400, "google")
-    assert "Klucz API jest nieprawidłowy" in msg and "aistudio.google.com" in msg
+    assert "Klucz API jest nieprawidłowy" in msg and "AQ.Ab" in msg
     msg404 = explain_error("model not found", 404, "google")
     assert "scriptforge models" in msg404
 
@@ -231,3 +231,33 @@ def test_set_api_key_rejects_unknown(tmp_path, monkeypatch):
         assert False
     except ValueError:
         pass
+
+
+def test_key_kind_detection():
+    from scriptforge.config import key_kind
+
+    assert key_kind("AQ.Ab1234567890abcdefghijklmnopqrstuvw") == "Auth (AQ)"
+    assert "wygasły" in key_kind("AIzaSyABCDEF1234567890")
+    assert "nieznany" in key_kind("xyz")
+
+
+def test_google_uses_header_auth(monkeypatch):
+    import httpx
+
+    from scriptforge.providers import GoogleGeminiProvider
+
+    provider = GoogleGeminiProvider("gemini-4-hydrogen", "AQ.AbTestKey123")
+    captured = {}
+
+    def fake_get(url, headers=None, params=None, timeout=None):
+        captured["url"] = url
+        captured["headers"] = headers or {}
+        return httpx.Response(200, request=httpx.Request("GET", url), json={
+            "models": [{"name": "models/gemini-4-hydrogen", "supportedGenerationMethods": ["generateContent"]}]
+        })
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+    models = provider.list_models()
+    assert models == ["gemini-4-hydrogen"]
+    assert captured["headers"].get("x-goog-api-key") == "AQ.AbTestKey123"
+    assert "key=" not in captured["url"]

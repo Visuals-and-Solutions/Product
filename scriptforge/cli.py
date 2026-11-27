@@ -167,10 +167,13 @@ def cmd_config(args) -> None:
             print(f"Pominięto (już zapisane): {skipped}")
         return
     print(f"Stała konfiguracja (przetrwa reinstalacje): {user_config_path()}")
-    print(f"{'Zmienna':<20} {'Stan':<12} Wartość")
+    print(f"{'Zmienna':<20} {'Stan':<12} {'Typ':<18} Wartość")
     for row in key_status():
-        print(f"{row['name']:<20} {'OK' if row['set'] else '—':<12} {row['masked'] or '(brak)'}")
-    print("\nImport kluczy ze starego .env (bez wyświetlania wartości):")
+        print(f"{row['name']:<20} {'OK' if row['set'] else '—':<12} {row['kind'][:17]:<18} {row['masked'] or '(brak)'}")
+        if row["warning"]:
+            print(f"{'':<20} ⚠ {row['kind']}")
+    print("\nGoogle: nowe klucze AI Studio mają format 'AQ.Ab…' (Auth). Stare 'AIza…' wygasły po IX 2026.")
+    print("Import kluczy ze starego .env (bez wyświetlania wartości):")
     print(f"  scriptforge config --import /ścieżka/do/starego/.env")
 
 

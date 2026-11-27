@@ -168,14 +168,25 @@ def provider_for_key_name(name: str) -> str | None:
     return None
 
 
+def key_kind(value: str) -> str:
+    if value.startswith("AQ."):
+        return "Auth (AQ)"
+    if value.startswith("AIza"):
+        return "Standard (AIza) — wygasły po IX 2026, wygeneruj nowy w AI Studio"
+    return "nieznany format — sprawdź, czy skopiowano pełny klucz"
+
+
 def key_status() -> list[dict]:
     """Stan kluczy (maskowany — nigdy nie zwraca wartości)."""
     load_dotenv()
     rows = []
     for name in KNOWN_KEY_NAMES:
         value = os.environ.get(name, "")
-        masked = f"{value[:4]}…***" if len(value) > 8 else ("(ustawiony)" if value else "")
-        rows.append({"name": name, "set": bool(value), "masked": masked})
+        masked = f"{value[:6]}…***" if len(value) > 8 else ("(ustawiony)" if value else "")
+        kind = key_kind(value) if value else ""
+        is_google = name in ("GOOGLE_API_KEY", "GEMINI_API_KEY")
+        warning = bool(value and is_google and value.startswith("AIza"))
+        rows.append({"name": name, "set": bool(value), "masked": masked, "kind": kind, "warning": warning})
     return rows
 
 

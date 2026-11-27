@@ -34,7 +34,7 @@
     </p>
 
     <table>
-      <thead><tr><th>Zmienna</th><th>Provider</th><th>Stan</th><th>Wartość</th></tr></thead>
+      <thead><tr><th>Zmienna</th><th>Provider</th><th>Stan</th><th>Wartość</th><th>Format</th></tr></thead>
       <tbody>
       {% for row in rows %}
         <tr>
@@ -42,6 +42,7 @@
           <td>{{ provider_of.get(row.name, ('—','—'))[1] }}</td>
           <td>{{ '✔ OK' if row.set else '— brak' }}</td>
           <td><code>{{ row.masked or '—' }}</code></td>
+          <td>{{ row.kind }}{% if row.warning %} ⚠{% endif %}</td>
         </tr>
       {% endfor %}
       </tbody>
@@ -70,6 +71,9 @@
       <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> ·
       <a href="https://build.nvidia.com" target="_blank" rel="noopener">NVIDIA</a> ·
       <a href="https://z.ai/manage-apikey/apikey-list" target="_blank" rel="noopener">Z.ai</a>
+      <p class="meta">⚠ Google: AI Studio od 28.05.2026 wydaje klucze <b>Auth</b> <code>AQ.Ab…</code> (ok. 53 znaki).
+      Stare klucze <code>AIza…</code> (Standard) wygasły po wrześniu 2026.
+      Na liście kluczy AI Studio widać tylko skrócony podgląd — otwórz szczegóły klucza i użyj <b>Copy key</b>.</p>
     </p>
   </main>
 </body>
