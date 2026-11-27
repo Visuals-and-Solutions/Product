@@ -1,106 +1,111 @@
 #!/usr/bin/env bash
-# ScriptForge — instalacja i uruchomienie na Debian/Ubuntu
+# ScriptForge — czysta, idempotentna instalacja (Debian/Ubuntu/Termux).
+# Można uruchamiać wielokrotnie: kod aktualizuje się w jednym stałym miejscu,
+# klucze API w ~/.config/scriptforge/.env nigdy nie są nadpisywane.
+#
 # Użycie:
-#   ./install_debian.sh            instalacja (venv + zależności + .env)
-#   ./install_debian.sh serve      instalacja (jeśli trzeba) + start panelu webowego
-#   ./install_debian.sh providers  szybki podgląd stanu kluczy API
+#   ./install_debian.sh              instalacja/aktualizacja do ~/scriptforge
+#   ./install_debian.sh doctor       instalacja + test kluczy
+#   ./install_debian.sh serve        instalacja + panel webowy
+#   ./install_debian.sh models       instalacja + lista modeli
 
 set -euo pipefail
 
-VENV=".venv"
+SRC="$(cd "$(dirname "$0")" && pwd)"
+TARGET="${SCRIPTFORGE_DIR:-$HOME/scriptforge}"
+VENV="$TARGET/.venv"
 PY="$VENV/bin/python"
 PIP="$VENV/bin/pip"
+BIN="$VENV/bin/scriptforge"
+USER_CONFIG="${SCRIPTFORGE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/scriptforge/.env}"
+KEYS_RE='^(GOOGLE_API_KEY|GEMINI_API_KEY|NVIDIA_API_KEY|ZAI_API_KEY|ZHIPU_API_KEY)=.+'
 
 log() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 die() { printf '\033[1;31mBŁĄD:\033[0m %s\n' "$*" >&2; exit 1; }
+has_keys() { grep -qE "$KEYS_RE" "$1" 2>/dev/null; }
 
-[ -f pyproject.toml ] || die "Uruchom skrypt z katalogu głównego projektu (tam, gdzie jest pyproject.toml)."
+[ -f "$SRC/pyproject.toml" ] || die "Uruchom z katalogu paczki ScriptForge (tam, gdzie jest pyproject.toml)."
 
-if ! command -v python3 >/dev/null 2>&1; then
-    log "Brak python3 — instaluję"
-    if command -v pkg >/dev/null 2>&1; then
-        pkg install -y python || die "Uruchom: pkg install python"
-    elif command -v sudo >/dev/null 2>&1; then
-        sudo apt-get update && sudo apt-get install -y python3 python3-venv python3-pip
-    else
-        apt-get update && apt-get install -y python3 python3-venv python3-pip
-    fi
-fi
+command -v python3 >/dev/null 2>&1 || die "Zainstaluj python3: sudo apt install python3 python3-venv (Termux: pkg install python)"
+
+log "Cel instalacji: $TARGET (stały, wspólny dla wszystkich wersji)"
+mkdir -p "$TARGET"
+
+log "Kopiuję kod (nadpisuje tylko pliki programu, nigdy kluczy)"
+for item in pyproject.toml scriptforge tests README.md .env.example; do
+    [ -e "$SRC/$item" ] || continue
+    rm -rf "$TARGET/$item"
+    cp -r "$SRC/$item" "$TARGET/$item"
+done
+rm -f "$TARGET/.env"
+
+cd "$TARGET"
 
 if [ ! -x "$PY" ]; then
-    log "Tworzę środowisko wirtualne $VENV"
+    log "Tworzę środowisko wirtualne"
     if ! python3 -m venv "$VENV" 2>/dev/null; then
         if command -v pkg >/dev/null 2>&1; then
             log "Termux: doinstalowuję python-pip i ponawiam"
             pkg install -y python-pip || true
         fi
-        python3 -m venv "$VENV" || die "Nie udało się utworzyć venv. Debian/Ubuntu: sudo apt install python3-venv; Termux: pkg install python-pip"
+        python3 -m venv "$VENV" || die "Nie udało się venv. Debian: sudo apt install python3-venv; Termux: pkg install python-pip"
     fi
 fi
 
-log "Aktualizuję pip i instaluję projekt"
-"$PIP" install --upgrade pip >/dev/null
-"$PIP" install -e . >/dev/null
+log "Instaluję pakiet (venv reused)"
+"$PIP" install --upgrade pip >/dev/null 2>&1 || true
+"$PIP" install -q -e .
 
-USER_CONFIG="${SCRIPTFORGE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/scriptforge/.env}"
-KEYS_RE='^(GOOGLE_API_KEY|GEMINI_API_KEY|NVIDIA_API_KEY|ZAI_API_KEY|ZHIPU_API_KEY)=.+'
-has_keys() { grep -qE "$KEYS_RE" "$1" 2>/dev/null; }
+mkdir -p "$HOME/.local/bin"
+ln -sf "$BIN" "$HOME/.local/bin/scriptforge"
+case ":$PATH:" in
+    *":$HOME/.local/bin:"*) ;;
+    *) PATH_NOTE=1 ;;
+esac
 
-if [ -f .env ] && has_keys .env; then
-    log "Klucze w lokalnym .env — synchronizuję z $USER_CONFIG"
-    scriptforge config --import .env >/dev/null 2>&1 || true
-elif [ ! -f .env ]; then
-    if has_keys "$USER_CONFIG"; then
-        log "Klucze API już zapisane w $USER_CONFIG — używam ich"
-    else
-        imported=0
-        for cand in ../.env ../../.env "$HOME/.env" "$HOME/.config/scriptforge/.env"; do
-            if has_keys "$cand"; then
-                log "Znalazłem klucze w $cand — importuję do $USER_CONFIG"
-                scriptforge config --import "$cand" || true
-                imported=1
-                break
-            fi
-        done
-        if [ "$imported" -eq 0 ]; then
-            log "Nie znalazłem żadnych kluczy — tworzę .env z szablonu"
-            if [ -f .env.example ]; then
-                cp .env.example .env
-            else
-                printf 'GOOGLE_API_KEY=\nNVIDIA_API_KEY=\nZAI_API_KEY=\n' > .env
-            fi
-            log "Edytuj plik .env (GOOGLE_API_KEY / NVIDIA_API_KEY / ZAI_API_KEY)"
-            log "albo zaimportuj z dowolnego starego .env: .venv/bin/scriptforge config --import /ścieżka/.env"
+imported=0
+if [ -f "$SRC/.env" ] && has_keys "$SRC/.env"; then
+    log "Klucze w paczce ($SRC/.env) — przenoszę do $USER_CONFIG"
+    "$BIN" config --import "$SRC/.env" || true
+    imported=1
+fi
+if [ "$imported" -eq 0 ] && ! has_keys "$USER_CONFIG"; then
+    for cand in "$SRC/../.env" "$SRC/../../.env" "$HOME/.env" "$HOME/scriptforge/.env"; do
+        if has_keys "$cand"; then
+            log "Znalazłem stare klucze w $cand — importuję do $USER_CONFIG"
+            "$BIN" config --import "$cand" || true
+            imported=1
+            break
         fi
-    fi
+    done
+fi
+if [ "$imported" -eq 0 ] && ! has_keys "$USER_CONFIG"; then
+    log "Brak kluczy — utwórz $USER_CONFIG (nano) albo: scriptforge config --import /ścieżka/.env"
 fi
 
-export PATH="$VENV/bin:$PATH"
+log "Instalacja zakończona."
+echo
+echo "Teraz używaj po prostu: scriptforge (działa z każdego katalogu)"
+if [ "${PATH_NOTE:-0}" = "1" ]; then
+    echo "UWAGA: dodaj do PATH jeśli 'command not found':"
+    echo "  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc"
+    echo "  (Termux: ~/.bashrc lub uruchamiaj \$HOME/.local/bin/scriptforge)"
+    echo
+fi
+echo "  scriptforge doctor     # test kluczy API"
+echo "  scriptforge models     # dostępne modele"
+echo "  scriptforge serve      # panel: http://127.0.0.1:7860"
+echo
+echo "Stare, zduplikowane katalogi paczek możesz usunąć:"
+echo "  rm -rf ~/.../Product-vibe-scriptforge-*  (te z zagnieżdżeniami)"
 
 case "${1:-}" in
-    serve)
-        log "Start panelu: http://127.0.0.1:7860 (Ctrl+C aby zatrzymać)"
-        scriptforge serve
-        ;;
-    providers)
-        scriptforge providers
+    doctor|serve|models|providers)
+        "$BIN" "$@"
         ;;
     "")
-        log "Instalacja zakończona."
-        echo
-        if [ -f .env ] && ! grep -qE "$KEYS_RE" .env 2>/dev/null && ! has_keys "$USER_CONFIG"; then
-            echo "NAJPIERW KLUCZE:"
-            echo "  nano .env                       # wklej klucze API"
-            echo "  lub: .venv/bin/scriptforge config --import /ścieżka/do/starego/.env"
-            echo
-        fi
-        echo "Dalsze kroki:"
-        echo "  .venv/bin/scriptforge doctor     # test kluczy"
-        echo "  .venv/bin/scriptforge serve      # panel webowy"
-        echo "  .venv/bin/scriptforge gen \"zadanie\" -p google"
-        echo "  (dodaj .venv/bin do PATH albo pisz pełną ścieżkę: .venv/bin/scriptforge)"
         ;;
     *)
-        scriptforge "$@"
+        "$BIN" "$@"
         ;;
 esac

@@ -7,18 +7,19 @@ Składa się z dwóch interfejsów:
 - **CLI** — generowanie, katalogowanie, uruchamianie i eksport skryptów z terminala,
 - **Panel webowy** (Flask, tylko `127.0.0.1`) — lista, wyszukiwanie, tagi, generowanie i podgląd kodu w przeglądarce.
 
-## Instalacja na Debian / Ubuntu (skrypt)
+## Instalacja na Debian / Ubuntu / Termux (czysta, idempotentna)
 
-Pobierz archiwum z [Releases](../../releases), rozpakuj i uruchom:
+Kod instaluje się zawsze do **jednego stałego katalogu** `~/scriptforge`, a klucze do `~/.config/scriptforge/.env`. Skrypt można uruchamiać wielokrotnie — aktualizuje kod, nigdy nie dubluje instalacji ani nie nadpisuje kluczy. Instalator sam znajdzie i zaimportuje klucze ze starych katalogów (`../.env`, `~/.env`).
 
 ```bash
-tar xzf scriptforge-*.tar.gz && cd scriptforge-*   # lub unzip scriptforge-*.zip
+tar xzf scriptforge-*.tar.gz && cd Product-*
 chmod +x install_debian.sh
-./install_debian.sh            # venv + zależności + .env
-./install_debian.sh serve      # start panelu: http://127.0.0.1:7860
+./install_debian.sh          # instalacja/aktualizacja → ~/scriptforge
+scriptforge doctor           # test kluczy (lub $HOME/.local/bin/scriptforge)
+scriptforge serve            # panel: http://127.0.0.1:7860
 ```
 
-Skrypt sam doinstaluje `python3`, `python3-venv` i `python3-pip` (przez `sudo apt`), jeśli ich brakuje.
+Po instalacji stare, zduplikowane katalogi paczek można usunąć — nie są już potrzebne.
 
 ## Instalacja (ręczna)
 
