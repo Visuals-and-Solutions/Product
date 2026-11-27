@@ -35,7 +35,7 @@ Skopiuj `.env.example` do `.env` (lub wyeksportuj zmienne w shellu) i uzupełnij
 
 | Provider | Zmienne | Domyślny model |
 |---|---|---|
-| Google Gemini | `GOOGLE_API_KEY` lub `GEMINI_API_KEY` | `gemini-2.5-flash` |
+| Google Gemini | `GOOGLE_API_KEY` lub `GEMINI_API_KEY` | `gemini-flash-latest` |
 | NVIDIA NIM | `NVIDIA_API_KEY` | `meta/llama-3.3-70b-instruct` |
 | Z.ai (GLM) | `ZAI_API_KEY` lub `ZHIPU_API_KEY` | `glm-4.6` |
 
@@ -54,6 +54,17 @@ scriptforge doctor                        # test każdego klucza w praktyce (pob
 `scriptforge doctor` wypisze `[OK]` dla działających kluczy, a przy błędzie poda konkretną przyczynę po polsku (np. nieprawidłowy klucz, brak uprawnień, przekroczony limit). Klucze są przy wczytywaniu oczyszczane ze spacji, cudzysłowów i prefiksu `Bearer`.
 
 Stan kluczy sprawdzisz także poleceniem `scriptforge providers`. Provider `mock` nie wymaga klucza — służy do testów i pracy offline.
+
+### Klucze z poziomu przeglądarki i CLI
+
+W panelu webowym: zakładka **Klucze** (`http://127.0.0.1:7860/keys`) — dodajesz/aktualizujesz klucz, wartość nigdy nie jest wyświetlana (tylko maska), a przycisk **Testuj klucze** od razu weryfikuje każdy klucz pobierając listę modeli. Klucze zapisują się w stałej konfiguracji.
+
+Z terminala (wejście ukryte, nie trafia do historii shella):
+
+```bash
+scriptforge key set GOOGLE_API_KEY   # zapyta o wartość bez echa
+scriptforge key list
+```
 
 ## CLI
 

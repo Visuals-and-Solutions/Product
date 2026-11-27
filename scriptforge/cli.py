@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .config import PROVIDERS, Settings, import_env_file, key_status, user_config_path
+from .config import KNOWN_KEY_NAMES, PROVIDERS, Settings, import_env_file, key_status, set_api_key, user_config_path
 from .generator import LANG_ALIASES, ProviderError, generate_and_save
 from .modelinfo import all_models
 from .providers import build_provider, explain_error, provider_status
@@ -195,6 +195,26 @@ def cmd_doctor(args) -> None:
         print("\nWszystkie skonfigurowane providery działają poprawnie.")
 
 
+def cmd_key(args) -> None:
+    if args.action == "list":
+        cmd_config(args)
+        return
+    name = args.name
+    if name not in KNOWN_KEY_NAMES:
+        print(f"Nieznana nazwa klucza: {name}. Dozwolone: {', '.join(KNOWN_KEY_NAMES)}", file=sys.stderr)
+        sys.exit(1)
+    import getpass
+
+    value = args.value or getpass.getpass(f"{name} (wejście ukryte): ")
+    try:
+        set_api_key(name, value)
+    except ValueError as exc:
+        print(f"Błąd: {exc}", file=sys.stderr)
+        sys.exit(1)
+    print(f"Zapisano {name} w {user_config_path()}")
+    print("Test: scriptforge doctor")
+
+
 def cmd_export(args) -> None:
     catalog = _catalog(args)
     md = catalog.export_index()
@@ -265,6 +285,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("doctor", help="test kluczy API każdego providera (pobiera modele)")
     p.set_defaults(func=cmd_doctor)
+
+    p = sub.add_parser("key", help="dodaj/aktualizuj klucz API (wejście ukryte)")
+    p.add_argument("action", choices=["set", "list"])
+    p.add_argument("name", nargs="?", default=None, help=f"nazwa zmiennej: {', '.join(KNOWN_KEY_NAMES)}")
+    p.add_argument("value", nargs="?", default=None, help="opcjonalnie wartość (lepiej pominąć — wtedy ukryte pytanie)")
+    p.set_defaults(func=cmd_key)
 
     p = sub.add_parser("export", help="eksportuj INDEX.md i catalog.json")
     p.set_defaults(func=cmd_export)

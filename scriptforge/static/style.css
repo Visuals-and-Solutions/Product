@@ -77,6 +77,7 @@ button.danger { border-color: var(--danger); color: var(--danger); }
 .meta { color: var(--muted); font-size: 0.9rem; }
 .empty { color: var(--muted); }
 .error { color: var(--danger); background: #2a1a1a; border: 1px solid var(--danger); padding: 0.6rem 0.8rem; border-radius: 6px; }
+.ok-msg { color: var(--ok); background: #16241d; border: 1px solid var(--ok); padding: 0.6rem 0.8rem; border-radius: 6px; }
 
 .code {
   background: var(--panel);

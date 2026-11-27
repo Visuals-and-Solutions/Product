@@ -6,6 +6,7 @@ from pathlib import Path
 
 from flask import Flask, abort, jsonify, redirect, render_template, request, url_for
 
+from .config import PROVIDERS, key_status, set_api_key
 from .generator import LANG_ALIASES, generate_and_save
 from .modelinfo import get_models
 from .providers import ProviderError, build_provider, provider_status
@@ -98,6 +99,35 @@ def create_app(workspace: Path | None = None) -> Flask:
         catalog = get_catalog()
         scripts = catalog.list(tag=request.args.get("tag"), search=request.args.get("q"))
         return {"scripts": [s.__dict__ for s in scripts]}
+
+    @app.route("/keys", methods=["GET", "POST"])
+    def keys_page():
+        message, ok = None, None
+        if request.method == "POST":
+            name = (request.form.get("key_name") or "").strip()
+            value = (request.form.get("key_value") or "").strip()
+            try:
+                set_api_key(name, value)
+                ok = True
+                message = f"Zapisano klucz {name}."
+            except (ValueError, OSError) as exc:
+                ok = False
+                message = str(exc)
+        rows = key_status()
+        provider_of = {}
+        for pname, meta in PROVIDERS.items():
+            for env in meta["env_keys"]:
+                provider_of[env] = (pname, meta["label"])
+        tests = {}
+        if request.args.get("test") == "1":
+            for row in rows:
+                provider = provider_of.get(row["name"], (None, None))[0]
+                if row["set"] and provider:
+                    info = get_models(provider, refresh=True)
+                    tests[row["name"]] = (
+                        f"OK — dostępne modele: {len(info['models'])}" if not info["error"] else info["error"]
+                    )
+        return render_template("keys.html", rows=rows, provider_of=provider_of, message=message, ok=ok, tests=tests)
 
     @app.get("/api/models")
     def api_models():

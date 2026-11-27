@@ -23,7 +23,7 @@ PROVIDERS = {
     "google": {
         "label": "Google Gemini",
         "env_keys": ["GOOGLE_API_KEY", "GEMINI_API_KEY"],
-        "default_model": "gemini-2.5-flash",
+        "default_model": "gemini-flash-latest",
     },
     "nvidia": {
         "label": "NVIDIA NIM",
@@ -107,6 +107,36 @@ def import_env_file(source: Path) -> tuple[list[str], int]:
         lines = [f"{k}={existing[k]}" for k in KNOWN_KEY_NAMES if k in existing]
         config_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return imported, skipped
+
+
+def set_api_key(name: str, value: str) -> None:
+    """Zapisuje klucz do stałej konfiguracji i od razu w środowisku procesu."""
+    if name not in KNOWN_KEY_NAMES:
+        raise ValueError(f"Nieznana nazwa klucza: {name}. Dozwolone: {', '.join(KNOWN_KEY_NAMES)}")
+    value = normalize_key(value)
+    if not value:
+        raise ValueError("Pusta wartość klucza")
+    config_path = user_config_path()
+    lines: dict[str, str] = {}
+    if config_path.is_file():
+        for line in config_path.read_text(encoding="utf-8").splitlines():
+            m = _LINE_RE.match(line)
+            if m and m.group(1) in KNOWN_KEY_NAMES:
+                lines[m.group(1)] = m.group(2).strip()
+    lines[name] = value
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        "\n".join(f"{k}={lines[k]}" for k in KNOWN_KEY_NAMES if k in lines) + "\n",
+        encoding="utf-8",
+    )
+    os.environ[name] = value
+
+
+def provider_for_key_name(name: str) -> str | None:
+    for provider, meta in PROVIDERS.items():
+        if name in meta["env_keys"]:
+            return provider
+    return None
 
 
 def key_status() -> list[dict]:

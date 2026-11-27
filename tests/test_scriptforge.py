@@ -204,3 +204,30 @@ def test_google_provider_invalid_key_message(monkeypatch):
         assert False, "powinien rzucić ProviderError"
     except ProviderError as exc:
         assert "Klucz API jest nieprawidłowy" in str(exc)
+
+
+def test_set_api_key_writes_and_env(tmp_path, monkeypatch):
+    from scriptforge import config
+
+    monkeypatch.setenv("SCRIPTFORGE_CONFIG", str(tmp_path / "cfg" / ".env"))
+    monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
+    config.set_api_key("NVIDIA_API_KEY", "  nv-key-999  ")
+    import os
+
+    assert os.environ["NVIDIA_API_KEY"] == "nv-key-999"
+    assert (tmp_path / "cfg" / ".env").read_text() == "NVIDIA_API_KEY=nv-key-999\n"
+
+    config.set_api_key("ZAI_API_KEY", "zai-1")
+    content = (tmp_path / "cfg" / ".env").read_text()
+    assert "nv-key-999" in content and "zai-1" in content
+
+
+def test_set_api_key_rejects_unknown(tmp_path, monkeypatch):
+    from scriptforge import config
+
+    monkeypatch.setenv("SCRIPTFORGE_CONFIG", str(tmp_path / "cfg" / ".env"))
+    try:
+        config.set_api_key("HACKED_KEY", "x")
+        assert False
+    except ValueError:
+        pass
