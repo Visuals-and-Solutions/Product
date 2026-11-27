@@ -124,8 +124,16 @@ def api_key_for(provider: str) -> str | None:
     for env_key in PROVIDERS.get(provider, {}).get("env_keys", []):
         value = os.environ.get(env_key)
         if value:
-            return value
+            return normalize_key(value)
     return None
+
+
+def normalize_key(value: str) -> str:
+    """Usuwa typowe zanieczyszczenia wklejonego klucza: spacje, cudzysłowy, prefiks Bearer."""
+    value = value.strip().strip('"').strip("'").strip()
+    if value.lower().startswith("bearer "):
+        value = value[7:].strip()
+    return value
 
 
 @dataclass

@@ -14,6 +14,43 @@ class ProviderError(RuntimeError):
     pass
 
 
+ERROR_HINTS = {
+    "API_KEY_INVALID": (
+        "Klucz API jest nieprawidłowy. Sprawdź:"
+        " 1) czy skopiowałeś pełny klucz ze strony https://aistudio.google.com/apikey (Google),"
+        " build.nvidia.com (NVIDIA) lub z.ai/manage-apikey (Z.ai);"
+        " 2) czy klucz nie zawiera spacji/cudzysłowów;"
+        " 3) czy klucz nie został unieważniony."
+        " Stan kluczy: scriptforge config"
+    ),
+    "PERMISSION_DENIED": "Klucz jest ważny, ale nie ma dostępu do tego zasobu/modelu.",
+    "API_KEY_SERVICE_BLOCKED": "Klucz jest ważny, ale usługa Gemini API jest zablokowana dla tego klucza w Google Cloud.",
+    "QUOTA_EXCEEDED": "Przekroczono limit/pulię klucza — sprawdź billing u dostawcy.",
+    "MODEL_NOT_FOUND": "Model o takiej nazwie nie istnieje. Dostępne modele: scriptforge models --refresh",
+}
+
+
+def explain_error(text: str, status_code: int, provider: str) -> str:
+    """Dopisuje do surowego błędu API czytelną podpowiedź po polsku."""
+    hint = None
+    if status_code == 401:
+        hint = ERROR_HINTS["API_KEY_INVALID"]
+    elif status_code in (400, 403):
+        for reason, mapped in ERROR_HINTS.items():
+            if reason in text:
+                hint = mapped
+                break
+        if hint is None and "API key not valid" in text:
+            hint = ERROR_HINTS["API_KEY_INVALID"]
+        if hint is None and status_code == 403:
+            hint = "Brak uprawnień dla tego klucza/zasobu."
+    if status_code == 404:
+        hint = ERROR_HINTS["MODEL_NOT_FOUND"]
+    if hint:
+        return f"{provider}: HTTP {status_code} — {hint}"
+    return f"{provider}: HTTP {status_code}: {text[:500]}"
+
+
 class Provider(Protocol):
     name: str
     model: str
@@ -46,7 +83,7 @@ class OpenAICompatibleProvider:
             timeout=self.timeout,
         )
         if response.status_code >= 400:
-            raise ProviderError(f"{self.name}: HTTP {response.status_code}: {response.text[:500]}")
+            raise ProviderError(explain_error(response.text, response.status_code, self.name))
         data = response.json()
         try:
             return data["choices"][0]["message"]["content"]
@@ -60,7 +97,7 @@ class OpenAICompatibleProvider:
             timeout=self.timeout,
         )
         if response.status_code >= 400:
-            raise ProviderError(f"{self.name}: HTTP {response.status_code} przy /models: {response.text[:300]}")
+            raise ProviderError(explain_error(response.text, response.status_code, self.name))
         data = response.json()
         try:
             return sorted(item["id"] for item in data["data"])
@@ -90,7 +127,7 @@ class GoogleGeminiProvider:
             timeout=self.timeout,
         )
         if response.status_code >= 400:
-            raise ProviderError(f"google: HTTP {response.status_code}: {response.text[:500]}")
+            raise ProviderError(explain_error(response.text, response.status_code, "google"))
         data = response.json()
         try:
             return data["candidates"][0]["content"]["parts"][0]["text"]
@@ -104,7 +141,7 @@ class GoogleGeminiProvider:
             timeout=self.timeout,
         )
         if response.status_code >= 400:
-            raise ProviderError(f"google: HTTP {response.status_code} przy /models: {response.text[:300]}")
+            raise ProviderError(explain_error(response.text, response.status_code, "google"))
         data = response.json()
         try:
             names = [

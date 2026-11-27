@@ -21,7 +21,7 @@ from . import __version__
 from .config import PROVIDERS, Settings, import_env_file, key_status, user_config_path
 from .generator import LANG_ALIASES, ProviderError, generate_and_save
 from .modelinfo import all_models
-from .providers import build_provider, provider_status
+from .providers import build_provider, explain_error, provider_status
 from .storage import RUNNABLE, Catalog
 
 
@@ -174,6 +174,27 @@ def cmd_config(args) -> None:
     print(f"  scriptforge config --import /ścieżka/do/starego/.env")
 
 
+def cmd_doctor(args) -> None:
+    catalog = _catalog(args)
+    results = all_models(refresh=True, cache_dir=catalog.workspace)
+    problems = 0
+    for name, info in results.items():
+        label = PROVIDERS[name]["label"]
+        if info["error"]:
+            problems += 1
+            print(f"[BŁĄD] {label} [{name}]")
+            print(f"       {info['error']}")
+        elif info["models"]:
+            print(f"[OK]   {label} [{name}] — klucz działa, dostępne modele: {len(info['models'])}")
+        else:
+            problems += 1
+            print(f"[?]    {label} [{name}] — brak danych")
+    if problems:
+        print(f"\nProblemy: {problems}. Napraw i uruchom ponownie: scriptforge doctor")
+    else:
+        print("\nWszystkie skonfigurowane providery działają poprawnie.")
+
+
 def cmd_export(args) -> None:
     catalog = _catalog(args)
     md = catalog.export_index()
@@ -241,6 +262,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("config", help="stan kluczy i stała konfiguracja (~/.config/scriptforge/.env)")
     p.add_argument("--import", dest="import_path", default=None, metavar="PLIK", help="zaimportuj klucze API ze starego pliku .env")
     p.set_defaults(func=cmd_config)
+
+    p = sub.add_parser("doctor", help="test kluczy API każdego providera (pobiera modele)")
+    p.set_defaults(func=cmd_doctor)
 
     p = sub.add_parser("export", help="eksportuj INDEX.md i catalog.json")
     p.set_defaults(func=cmd_export)

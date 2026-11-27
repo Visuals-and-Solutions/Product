@@ -166,3 +166,41 @@ def test_load_dotenv_does_not_override_environment(tmp_path, monkeypatch):
     import os
 
     assert os.environ["GOOGLE_API_KEY"] == "from-env"
+
+
+def test_normalize_key_strips_pollution():
+    from scriptforge.config import normalize_key
+
+    assert normalize_key('  "abc-123"  ') == "abc-123"
+    assert normalize_key("Bearer abc-123") == "abc-123"
+    assert normalize_key(" abc-123 ") == "abc-123"
+
+
+def test_explain_error_maps_invalid_key():
+    from scriptforge.providers import explain_error
+
+    msg = explain_error('{"error":{"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT"}}', 400, "google")
+    assert "Klucz API jest nieprawidłowy" in msg and "aistudio.google.com" in msg
+    msg404 = explain_error("model not found", 404, "google")
+    assert "scriptforge models" in msg404
+
+
+def test_google_provider_invalid_key_message(monkeypatch):
+    import httpx
+
+    from scriptforge.providers import GoogleGeminiProvider, ProviderError
+
+    monkeypatch.setenv("GOOGLE_API_KEY", "zly-klucz")
+    provider = GoogleGeminiProvider("gemini-2.5-flash", "zly-klucz")
+
+    def fake_post(*a, **kw):
+        return httpx.Response(400, request=httpx.Request("POST", "http://x"), json={
+            "error": {"code": 400, "message": "API key not valid. Please pass a valid API key.", "status": "INVALID_ARGUMENT"}
+        })
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    try:
+        provider.generate("test")
+        assert False, "powinien rzucić ProviderError"
+    except ProviderError as exc:
+        assert "Klucz API jest nieprawidłowy" in str(exc)

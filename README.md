@@ -47,7 +47,10 @@ Klucze zapisane w `~/.config/scriptforge/.env` są wczytywane zawsze — nawet g
 ```bash
 scriptforge config                        # stan kluczy (maskowany) + ścieżki konfiguracji
 scriptforge config --import ~/stara-paczka/.env   # import kluczy ze starego .env (bez wyświetlania wartości)
+scriptforge doctor                        # test każdego klucza w praktyce (pobiera listę modeli)
 ```
+
+`scriptforge doctor` wypisze `[OK]` dla działających kluczy, a przy błędzie poda konkretną przyczynę po polsku (np. nieprawidłowy klucz, brak uprawnień, przekroczony limit). Klucze są przy wczytywaniu oczyszczane ze spacji, cudzysłowów i prefiksu `Bearer`.
 
 Stan kluczy sprawdzisz także poleceniem `scriptforge providers`. Provider `mock` nie wymaga klucza — służy do testów i pracy offline.
 
