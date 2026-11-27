@@ -7,7 +7,20 @@ Składa się z dwóch interfejsów:
 - **CLI** — generowanie, katalogowanie, uruchamianie i eksport skryptów z terminala,
 - **Panel webowy** (Flask, tylko `127.0.0.1`) — lista, wyszukiwanie, tagi, generowanie i podgląd kodu w przeglądarce.
 
-## Instalacja
+## Instalacja na Debian / Ubuntu (skrypt)
+
+Pobierz archiwum z [Releases](../../releases), rozpakuj i uruchom:
+
+```bash
+tar xzf scriptforge-*.tar.gz && cd scriptforge-*   # lub unzip scriptforge-*.zip
+chmod +x install_debian.sh
+./install_debian.sh            # venv + zależności + .env
+./install_debian.sh serve      # start panelu: http://127.0.0.1:7860
+```
+
+Skrypt sam doinstaluje `python3`, `python3-venv` i `python3-pip` (przez `sudo apt`), jeśli ich brakuje.
+
+## Instalacja (ręczna)
 
 ```bash
 pip install -e .
