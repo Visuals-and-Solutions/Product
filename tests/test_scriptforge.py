@@ -93,3 +93,35 @@ def test_build_provider_missing_key(monkeypatch):
 
     with pytest.raises(ProviderError):
         build_provider("google")
+
+
+def test_mock_list_models():
+    from scriptforge.modelinfo import fetch_models
+
+    models = fetch_models("mock")
+    assert "mock-1" in models
+
+
+def test_get_models_cache_roundtrip(tmp_path, monkeypatch):
+    from scriptforge import modelinfo
+
+    info = modelinfo.get_models("mock", refresh=True, cache_dir=tmp_path)
+    assert info["source"] == "api" and info["models"] == ["mock-1", "mock-2-mini"]
+
+    from scriptforge.providers import MockProvider
+
+    monkeypatch.setattr(MockProvider, "list_models", lambda self: ["changed-1"])
+    cached = modelinfo.get_models("mock", cache_dir=tmp_path)
+    assert cached["source"] == "cache" and cached["models"] == ["mock-1", "mock-2-mini"]
+
+    refreshed = modelinfo.get_models("mock", refresh=True, cache_dir=tmp_path)
+    assert refreshed["source"] == "api" and refreshed["models"] == ["changed-1"]
+
+
+def test_get_models_missing_key(tmp_path, monkeypatch):
+    from scriptforge.modelinfo import get_models
+
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    info = get_models("google", cache_dir=tmp_path)
+    assert info["models"] == [] and info["error"] and "Brak klucza" in info["error"]

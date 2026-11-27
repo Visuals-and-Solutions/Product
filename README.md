@@ -46,6 +46,7 @@ Stan kluczy sprawdzisz poleceniem `scriptforge providers`. Provider `mock` nie w
 
 ```bash
 scriptforge providers                                   # providerzy i stan kluczy
+scriptforge models [--refresh]                          # dostępne modele dla kluczy (cache 24 h)
 scriptforge gen "backup katalogu do tar.gz z rotacją" -p google --tags backup,devops
 scriptforge gen "sprawdzenie zajętości dysku" -p nvidia -l bash
 scriptforge gen "masowa zmiana nazw plików" -p zai --tags files
@@ -66,7 +67,7 @@ Globalne opcje: `--workspace` (katalog skryptów), `--db` (ścieżka bazy SQLite
 scriptforge serve            # http://127.0.0.1:7860
 ```
 
-Funkcje: lista skryptów z tagami i wyszukiwaniem, formularz generowania (provider, model, język, tagi), podgląd kodu i promptu źródłowego, usuwanie, API JSON pod `/api/scripts`, health-check `/healthz`. Serwer nasłuchuje **wyłącznie na 127.0.0.1**.
+Funkcje: lista skryptów z tagami i wyszukiwaniem, formularz generowania (provider, model, język, tagi), podgląd kodu i promptu źródłowego, usuwanie, API JSON pod `/api/scripts`, lista dostępnych modeli dla klucza pod `/api/models?provider=...` (odświeżenie: `&refresh=1`), health-check `/healthz`. Serwer nasłuchuje **wyłącznie na 127.0.0.1**.
 
 ## Struktura danych
 

@@ -20,6 +20,7 @@ from pathlib import Path
 from . import __version__
 from .config import PROVIDERS, Settings
 from .generator import LANG_ALIASES, ProviderError, generate_and_save
+from .modelinfo import all_models
 from .providers import build_provider, provider_status
 from .storage import RUNNABLE, Catalog
 
@@ -133,6 +134,23 @@ def cmd_delete(args) -> None:
         sys.exit(1)
 
 
+def cmd_models(args) -> None:
+    catalog = _catalog(args)
+    results = all_models(refresh=args.refresh, cache_dir=catalog.workspace)
+    for name, info in results.items():
+        label = PROVIDERS[name]["label"]
+        src = f"(z cache, {info['fetched_at']})" if info["source"] == "cache" else f"({info['source']})"
+        print(f"\n{label} [{name}] {src}")
+        if info["error"]:
+            print(f"  błąd: {info['error']}")
+        if not info["models"]:
+            print("  brak danych")
+        for m in info["models"]:
+            marker = "* " if m == PROVIDERS[name]["default_model"] else "  "
+            print(f"  {marker} {m}")
+    print("\n(* = model domyślny)")
+
+
 def cmd_export(args) -> None:
     catalog = _catalog(args)
     md = catalog.export_index()
@@ -192,6 +210,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("delete", help="usuń skrypt i plik")
     p.add_argument("ref", help="ID lub slug")
     p.set_defaults(func=cmd_delete)
+
+    p = sub.add_parser("models", help="dostępne modele dla kluczy API (z cache)")
+    p.add_argument("--refresh", action="store_true", help="wymuś odświeżenie z API")
+    p.set_defaults(func=cmd_models)
 
     p = sub.add_parser("export", help="eksportuj INDEX.md i catalog.json")
     p.set_defaults(func=cmd_export)

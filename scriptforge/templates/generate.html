@@ -44,7 +44,9 @@
 
       <div class="row">
         <label>Model (opcjonalnie)
-          <input type="text" name="model" value="{{ model }}" placeholder="domyślny providera">
+          <input type="text" name="model" id="model-input" value="{{ model }}" placeholder="domyślny providera" list="model-list">
+          <datalist id="model-list"></datalist>
+          <small id="model-status" class="meta"></small>
         </label>
 
         <label>Tagi (po przecinku)
@@ -55,5 +57,36 @@
       <button type="submit">Generuj skrypt</button>
     </form>
   </main>
+
+  <script>
+    const modelInput = document.getElementById('model-input');
+    const modelList = document.getElementById('model-list');
+    const modelStatus = document.getElementById('model-status');
+    const providerSelect = document.querySelector('select[name="provider"]');
+
+    function loadModels(refresh) {
+      const provider = providerSelect.value;
+      modelStatus.textContent = 'Ładowanie modeli…';
+      modelList.innerHTML = '';
+      const url = '/api/models?provider=' + encodeURIComponent(provider) + (refresh ? '&refresh=1' : '');
+      fetch(url)
+        .then(r => r.json())
+        .then(info => {
+          for (const m of info.models || []) {
+            const opt = document.createElement('option');
+            opt.value = m;
+            modelList.appendChild(opt);
+          }
+          const src = {api: 'z API', cache: 'z cache (' + (info.fetched_at || '') + ')', none: 'brak danych'}[info.source] || info.source;
+          modelStatus.textContent = info.error
+            ? 'Błąd: ' + info.error
+            : 'Dostępne modele: ' + (info.models || []).length + ' (' + src + ')';
+        })
+        .catch(() => { modelStatus.textContent = 'Nie udało się pobrać listy modeli.'; });
+    }
+
+    providerSelect.addEventListener('change', () => loadModels(false));
+    loadModels(false);
+  </script>
 </body>
 </html>

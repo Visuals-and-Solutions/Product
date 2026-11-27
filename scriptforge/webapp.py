@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from flask import Flask, abort, redirect, render_template, request, url_for
+from flask import Flask, abort, jsonify, redirect, render_template, request, url_for
 
 from .generator import LANG_ALIASES, generate_and_save
+from .modelinfo import get_models
 from .providers import ProviderError, build_provider, provider_status
 from .storage import Catalog
 
@@ -97,6 +98,13 @@ def create_app(workspace: Path | None = None) -> Flask:
         catalog = get_catalog()
         scripts = catalog.list(tag=request.args.get("tag"), search=request.args.get("q"))
         return {"scripts": [s.__dict__ for s in scripts]}
+
+    @app.get("/api/models")
+    def api_models():
+        provider = request.args.get("provider", "google")
+        refresh = request.args.get("refresh") == "1"
+        info = get_models(provider, refresh=refresh)
+        return jsonify(info)
 
     @app.get("/healthz")
     def healthz():

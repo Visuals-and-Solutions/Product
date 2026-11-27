@@ -20,6 +20,8 @@ class Provider(Protocol):
 
     def generate(self, prompt: str, *, system: str | None = None) -> str: ...
 
+    def list_models(self) -> list[str]: ...
+
 
 class OpenAICompatibleProvider:
     """NVIDIA NIM i Z.ai udostępniają API zgodne z OpenAI chat/completions."""
@@ -51,6 +53,20 @@ class OpenAICompatibleProvider:
         except (KeyError, IndexError, TypeError) as exc:
             raise ProviderError(f"{self.name}: nieoczekiwana odpowiedź API: {exc}") from exc
 
+    def list_models(self) -> list[str]:
+        response = httpx.get(
+            f"{self.base_url}/models",
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            timeout=self.timeout,
+        )
+        if response.status_code >= 400:
+            raise ProviderError(f"{self.name}: HTTP {response.status_code} przy /models: {response.text[:300]}")
+        data = response.json()
+        try:
+            return sorted(item["id"] for item in data["data"])
+        except (KeyError, TypeError) as exc:
+            raise ProviderError(f"{self.name}: nieoczekiwany format /models: {exc}") from exc
+
 
 class GoogleGeminiProvider:
     name = "google"
@@ -81,6 +97,25 @@ class GoogleGeminiProvider:
         except (KeyError, IndexError, TypeError) as exc:
             raise ProviderError(f"google: nieoczekiwana odpowiedź API: {exc}") from exc
 
+    def list_models(self) -> list[str]:
+        response = httpx.get(
+            "https://generativelanguage.googleapis.com/v1beta/models",
+            params={"key": self.api_key, "pageSize": 1000},
+            timeout=self.timeout,
+        )
+        if response.status_code >= 400:
+            raise ProviderError(f"google: HTTP {response.status_code} przy /models: {response.text[:300]}")
+        data = response.json()
+        try:
+            names = [
+                m["name"].removeprefix("models/")
+                for m in data["models"]
+                if "generateContent" in m.get("supportedGenerationMethods", [])
+            ]
+            return sorted(names)
+        except (KeyError, TypeError) as exc:
+            raise ProviderError(f"google: nieoczekiwany format /models: {exc}") from exc
+
 
 class MockProvider:
     """Zwraca deterministyczny kod — smoke testy i praca offline bez kluczy."""
@@ -102,6 +137,9 @@ class MockProvider:
             f"    main()\n"
             f"```"
         )
+
+    def list_models(self) -> list[str]:
+        return ["mock-1", "mock-2-mini"]
 
 
 class NVIDIAProvider(OpenAICompatibleProvider):
